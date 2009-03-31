@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/home/hadoop/hadoop-0.19.1/hadoop-0.19.1-ant.jar"/>
+	<classpathentry kind="lib" path="/home/hadoop/hadoop-0.19.1/hadoop-0.19.1-core.jar" sourcepath="/home/hadoop/hadoop-0.19.1/src"/>
+	<classpathentry kind="lib" path="/home/hadoop/hadoop-0.19.1/hadoop-0.19.1-tools.jar"/>
+	<classpathentry kind="lib" path="/home/hadoop/hadoop-0.19.1/lib/commons-logging-1.0.4.jar"/>
+	<classpathentry kind="lib" path="/home/hadoop/hadoop-0.19.1/lib/commons-logging-api-1.0.4.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
