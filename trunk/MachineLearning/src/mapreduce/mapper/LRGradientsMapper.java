@@ -29,7 +29,7 @@ import org.apache.hadoop.mapred.Reporter;
 
 import mapreduce.exceptions.*;
 import mapreduce.mlwritables.DoubleArrayWritable;
-import ml.algorithms.utils.LRUtils;
+import ml.algorithms.utils.LRUtil;
 /*
  * The Map reduce class responsible for parallelizing Logistic Regression algorithms
  * 
@@ -89,7 +89,7 @@ public class LRGradientsMapper {
 			 System.out.println("*************inited running the lr on one daya point*********");
 			 System.out.println("In mapper# "+key);
 			 
-			 double[] gradient= LRUtils.calculateGradient(w, target, phi_n);//later we will call this on an adaptor interface...
+			 double[] gradient= LRUtil.calculateGradient(w, target, phi_n);//later we will call this on an adaptor interface...
 			 DoubleWritable[] update = new DoubleWritable[gradient.length];//don't convert this back to string!
 			 for(int i =0;i< gradient.length;i++){
 				if(Double.isNaN(gradient[i])){

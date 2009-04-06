@@ -29,15 +29,14 @@ import org.apache.hadoop.mapred.Reporter;
 
 import mapreduce.exceptions.*;
 import mapreduce.mlwritables.DoubleArrayWritable;
-import ml.algorithms.utils.LRUtils;
+import ml.algorithms.utils.LRUtil;
 /*
  * The Map reduce class responsible for parallelizing Logistic Regression algorithms
  * 
  * */
 public class LRHessianMapper {
 
-	public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, IntWritable, DoubleArrayWritable> { 
-	   private Path[] model;
+	public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, DoubleWritable> { 
 	   private static String HDFS_LR_MODEL="/FinalLRModel/model.txt";
 	   private Path cachedModelPath;
 	   public void configure(JobConf conf) {
@@ -49,7 +48,7 @@ public class LRHessianMapper {
 		        for (Path cachePath : cacheFiles) {
 		        	if( cachePath.getName().equals(hdfsModelPath)){
 		        		cachedModelPath = cachePath;
-		        		System.out.println("cachePath::"+cachePath.getName());//ATTN this is the local cacahe path... Not on HDFS...
+		        		System.out.println("cachePath::"+cachePath.getName());//ATTN this is the local cache path... Not on HDFS...
 		        		break;
 		          }
 		        }
@@ -62,12 +61,12 @@ public class LRHessianMapper {
 		  }
 
 		@Override
-		public void map(LongWritable key, Text value, OutputCollector<IntWritable, DoubleArrayWritable> output, Reporter reporter) throws IOException {
+		public void map(LongWritable key, Text value, OutputCollector<Text, DoubleWritable> output, Reporter reporter) throws IOException {
 			 //by default the key is the byte offset of the value in the file.??
 			 String phi_n_t = value.toString();//we know only one value will come in for now... Need to chage this later
 			 //we will need to make the values as an Iterator<Writable> 
 			 String[] featureTargetArray= phi_n_t.split(" ");//break into tokens
-			 double[] phi_n = new double[featureTargetArray.length-1];//one less because the target is the last value
+			 double[] phi_n = new double[featureTargetArray.length-1];//one less because target is the last value.
 			 double[] w = new double[phi_n.length];//get the initial weights
 			 double target = Double.parseDouble(featureTargetArray[featureTargetArray.length-1]);//target at the end...
 			 BufferedReader wordReader = new BufferedReader(new FileReader(cachedModelPath.toString()));
@@ -88,26 +87,22 @@ public class LRHessianMapper {
 			 }
 			 System.out.println("*************inited running the lr on one daya point*********");
 			 System.out.println("In mapper# "+key);
-			 
-			 double[] gradient= LRUtils.calculateGradient(w, target, phi_n);//later we will call this on an adaptor interface...
-			 double[][] hessian = LRUtils.hessian(w, phi_n);//this too...
-			 
-			 DoubleWritable[] update = new DoubleWritable[gradient.length];//don't convert this back to string!
-			 for(int i =0;i< gradient.length;i++){
-				double temp = gradient[i];
-				if(Double.isNaN(temp)){
-					 temp = Double.MIN_VALUE;
-				 } 
-				update[i] = new DoubleWritable(temp);
-			    System.out.print("VAL "+i+"::"+update[i]+"   ");
-			 }System.out.println();
-			 System.out.println("*************Writing the above O/p to reducers *********");
-			 int i = new Random().nextInt(6);//generate a number between 0-19 inclusive
-			 
-			 //now we need to write the O/p keys
-			 DoubleArrayWritable ars = new DoubleArrayWritable();
-			 ars.set(update);
-			 output.collect(new IntWritable(1),ars);//collect the values into one of the 1 bin... Only one reducer to be spawned...
+			 //Great we avoided the need for a huge temporary matrix completely!. We just need to collect the 
+			 //H(i,j) directly in the for loop below. This saves RAM. Even for a 50*50 double hessian assuming 
+			 // it takes 2500*8 = 20000 =20KB of temp ram memory/mapper. The O/P to the HDFS is unaffected though... 
+			 Double constant =LRUtil.efficientHessianConstant(w, phi_n);
+			 for(int i =0;i< phi_n.length;i++){
+				 for(int j =0;j< phi_n.length;j++){
+					 Double temp =LRUtil.efficientHessianVariable(constant,phi_n, i, j);
+					 if(Double.isNaN(temp)){
+						 temp = Double.MIN_VALUE;
+					 } 
+					//all mappers collect the H(i,j) here. We will sum it up in the reducers
+					 output.collect(new Text(i+" "+j),new DoubleWritable(temp));
+					 
+				 }
+			 }
+			 System.out.println();
 			 System.out.println("Exiting mapper# "+key);
 			 
 			 
