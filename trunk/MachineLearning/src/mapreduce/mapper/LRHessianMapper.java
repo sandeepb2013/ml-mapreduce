@@ -1,37 +1,24 @@
 package mapreduce.mapper;
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
-import java.util.StringTokenizer;
 
 
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.ArrayWritable;
+
 import org.apache.hadoop.io.DoubleWritable;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
 
-import mapreduce.exceptions.*;
-import mapreduce.mlwritables.DoubleArrayWritable;
 import ml.algorithms.utils.LRUtil;
 /*
- * The Map reduce class responsible for parallelizing Logistic Regression algorithms
+ * The Map reduce class responsible for parallelising Logistic Regression algorithms
  * 
  * */
 public class LRHessianMapper {
@@ -41,20 +28,20 @@ public class LRHessianMapper {
 	   private Path cachedModelPath;
 	   public void configure(JobConf conf) {
 		    try {
+		    	String hdfsModelPath = new Path(HDFS_LR_MODEL).getName();
 		    	
-		      String hdfsModelPath = new Path(HDFS_LR_MODEL).getName();
-		      Path [] cacheFiles = DistributedCache.getLocalCacheFiles(conf);
-		      if (null != cacheFiles && cacheFiles.length > 0 ) {
-		        for (Path cachePath : cacheFiles) {
-		        	if( cachePath.getName().equals(hdfsModelPath)){
-		        		cachedModelPath = cachePath;
-		        		System.out.println("cachePath::"+cachePath.getName());//ATTN this is the local cache path... Not on HDFS...
-		        		break;
-		          }
-		        }
-		        }else
+		    	Path [] cacheFiles = DistributedCache.getLocalCacheFiles(conf);
+		    	if (null != cacheFiles && cacheFiles.length > 0 ) {
+		    		for (Path cachePath : cacheFiles) {
+		    			if( cachePath.getName().equals(hdfsModelPath)){
+		    				cachedModelPath = cachePath;
+		    				System.out.println("cachePath::"+cachePath.getName());//ATTN this is the local cache path... Not on HDFS...
+		    				break;
+		    			}
+		    		}
+		    	}else
 		        	System.out.println("BAD  BAD CACHE!");
-		    } catch (IOException ioe) {
+		    }catch (IOException ioe) {
 		      System.err.println("IOException reading from distributed cache");
 		      System.err.println(ioe.toString());
 		    }
@@ -72,8 +59,9 @@ public class LRHessianMapper {
 			 BufferedReader wordReader = new BufferedReader(new FileReader(cachedModelPath.toString()));
 			 int count=0;
 			 String line = wordReader.readLine();
-			 System.out.println("We red in the line: "+line);
+			
 			 while(line!=null){
+				 System.out.println("We red in the line: "+line);
 				 w[count]= Double.parseDouble(line.trim());//Read in the model;
 				 count++;
 				 line = wordReader.readLine();
@@ -86,7 +74,7 @@ public class LRHessianMapper {
 				 System.out.print("VAL"+i+"::"+phi_n[i]+"   ");
 			 }
 			 System.out.println("*************inited running the lr on one daya point*********");
-			 System.out.println("In mapper# "+key);
+			 System.out.println("In hessian mapper# "+key);
 			 //Great we avoided the need for a huge temporary matrix completely!. We just need to collect the 
 			 //H(i,j) directly in the for loop below. This saves RAM. Even for a 50*50 double hessian assuming 
 			 // it takes 2500*8 = 20000 =20KB of temp ram memory/mapper. The O/P to the HDFS is unaffected though... 
