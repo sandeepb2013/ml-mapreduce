@@ -87,7 +87,7 @@ public class LRGradientsMapper {
 				 System.out.print("VAL"+i+"::"+phi_n[i]+"   ");
 			 }
 			 System.out.println("*************inited running the lr on one daya point*********");
-			 System.out.println("In mapper# "+key);
+			 System.out.println("In Gradient mapper# "+key);
 			 
 			 double[] gradient= LRUtil.calculateGradient(w, target, phi_n);//later we will call this on an adaptor interface...
 			 DoubleWritable[] update = new DoubleWritable[gradient.length];//don't convert this back to string!
