@@ -9,7 +9,9 @@ import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
-/*a Simple class to just add all the elements that comprise of a single hessian.*/
+/*a Simple class to just add all the elements that comprise of a single hessian.
+ *  
+ * */
 public class LRHessianReducer {
 	public static class Reduce extends MapReduceBase implements Reducer<Text, DoubleWritable, Text, DoubleWritable> {
  	    
@@ -23,8 +25,7 @@ public class LRHessianReducer {
 				while(values.hasNext()){//add each of the values of firstStageElements to firststagesum
 					hessianElement.set(hessianElement.get()+values.next().get());//gathet 
 				}System.out.println("The hessian sum for "+key+" is "+hessianElement.get());
-				output.collect(key, hessianElement);
-			
+				output.collect(key, hessianElement);			
 		}
 	}
 }

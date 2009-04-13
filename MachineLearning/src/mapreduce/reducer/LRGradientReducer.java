@@ -35,21 +35,16 @@ public class LRGradientReducer {
 			}
 			while(values.hasNext()){//add each of the values of firstStageElements to firststagesum
 				firstStageElements = values.next().get();//get the new array from the map process
-				for(int j=0;j<firstStageElements.length;j++){
-					System.out.print("VALR: "+j+" :"+firstStageElements[j]+"  ");
-				}System.out.println();
-				System.out.println(" firstStageElements.length: "+firstStageElements.length+" firstStageSum.size: "+firstStageSum.length);
+			
 				//add it to the sum
-				for(int i = 0 ;i <firstStageElements.length;i++){
+				for(int i = 0 ;i <firstStageElements.length;i++){//add the values to the sum 
 					firstStageSum[i]= new DoubleWritable(firstStageSum[i].get() +(double)((DoubleWritable)firstStageElements[i]).get());
 					
 				}
-				for(int j=0;j<firstStageSum.length;j++){
-					System.out.print("VALF: "+j+" :"+firstStageSum[j]+"  ");
-				}System.out.println();
+			
 				
 			}
-			List ls = Arrays.asList(firstStageSum);
+			List ls = Arrays.asList(firstStageSum);//op the list as text
 			Text s = new Text(ls.toString());
 			System.out.println("Reduce O/p:"+ls.toString());
 			for(int i = 0 ;i < firstStageSum.length;i++)
