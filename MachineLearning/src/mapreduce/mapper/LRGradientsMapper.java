@@ -29,6 +29,7 @@ import org.apache.hadoop.mapred.Reporter;
 
 import mapreduce.exceptions.*;
 import mapreduce.mlwritables.DoubleArrayWritable;
+import mapreduce.utils.FileUtils;
 import ml.algorithms.utils.LRUtil;
 /*
  * The Map reduce class responsible for parallelizing Logistic Regression algorithms
@@ -40,25 +41,48 @@ public class LRGradientsMapper {
 	   private Path[] model;
 	   private static String HDFS_LR_MODEL="/FinalLRModel/model.txt";
 	   private Path cachedModelPath;
+	   private JobConf conf;
+	   private static ArrayList<Double> w = new ArrayList<Double>();//universal model
 	   public void configure(JobConf conf) {
-		    try {
-		    	
-		      String hdfsModelPath = new Path(HDFS_LR_MODEL).getName();
-		      Path [] cacheFiles = DistributedCache.getLocalCacheFiles(conf);
-		      if (null != cacheFiles && cacheFiles.length > 0 ) {
-		        for (Path cachePath : cacheFiles) {
-		        	if( cachePath.getName().equals(hdfsModelPath)){
-		        		cachedModelPath = cachePath;
-		        		System.out.println("cachePath::"+cachePath.getName());//ATTN this is the local cacahe path... Not on HDFS...
-		        		break;
-		          }
-		        }
-		        }else
-		        	System.out.println("BAD  BAD CACHE!");
-		    } catch (IOException ioe) {
-		      System.err.println("IOException reading from distributed cache");
-		      System.err.println(ioe.toString());
-		    }
+		    try{
+				Path [] cacheFiles = DistributedCache.getLocalCacheFiles(conf);
+				BufferedReader wordReader=null;
+				if (null != cacheFiles && cacheFiles.length > 0) {
+					System.out.println("Fetching paths...");
+			        for (Path cachePath : cacheFiles) {
+			        	System.out.println("PATHS: "+cachePath);
+			          if (cachePath.getName().equals(HDFS_LR_MODEL)) {
+			        	wordReader = FileUtils.getResouceAsReader(cachePath, conf);
+			            break;
+			          }
+			        }
+				}
+			 int count=0;
+			 System.out.println("Object WR="+wordReader);
+			 if(wordReader!=null){
+				 String line = wordReader.readLine();
+				 System.out.println("We red in the line: "+line);
+				 
+				 while(line!=null){
+					 String[] split = line.split(" ");
+					 w.add(Double.parseDouble(split[1].trim()));//Read in the model;
+					 count++;
+					 line = wordReader.readLine();
+				 }
+			 }else{//Reader is null....
+				 System.out.println("wordReader"+wordReader);
+				 System.out.println("Could not read in the model using zero matrix!!");
+				 
+			 }
+			}catch(IOException e){
+				System.out.println("Could not read in the model using zero matrix!!");
+				e.printStackTrace();
+			}
+			 if(w.size()<=0){//the model was not read in this is initialisation 
+				 System.out.println("Model was empty. This could be initialization");
+			}
+			
+		    
 		  }
 
 		@Override
@@ -68,28 +92,24 @@ public class LRGradientsMapper {
 			 //we will need to make the values as an Iterator<Writable> 
 			 String[] featureTargetArray= phi_n_t.split(" ");//break into tokens
 			 double[] phi_n = new double[featureTargetArray.length-1];//one less because the target is the last value
-			 double[] w = new double[phi_n.length];//get the initial weights
 			 double target = Double.parseDouble(featureTargetArray[featureTargetArray.length-1]);//target at the end...
-			 BufferedReader wordReader = new BufferedReader(new FileReader(cachedModelPath.toString()));
-			 int count=0;
-			 String line = wordReader.readLine();
-			 System.out.println("We red in the line: "+line);
-			 while(line!=null){
-				 w[count]= Double.parseDouble(line.trim());//Read in the model;
-				 count++;
-				 line = wordReader.readLine();
-			 }
-			 if(count!=phi_n.length-1 || count==0){//the model was not read in this is initialisation 
-				 System.out.println("First iteration detected for mapper.");
-			 }
 			 for(int i=0 ;i < phi_n.length ;i++){
 				 phi_n[i] = Double.parseDouble(featureTargetArray[i]);
 				 System.out.print("VAL"+i+"::"+phi_n[i]+"   ");
 			 }
-			 System.out.println("*************inited running the lr on one daya point*********");
+			 System.out.println("*************Data inited. Running the lr on one data point*********");
 			 System.out.println("In Gradient mapper# "+key);
+			 double[] weights = new double[phi_n.length];
+			 int count=0;
+			 if(w.size()==phi_n.length){
+				 for (Double d : w) 
+					 weights[count++] =d;
+			 }else{
+				 Arrays.fill(weights, new Double(0));
+			 }
 			 
-			 double[] gradient= LRUtil.calculateGradient(w, target, phi_n);//later we will call this on an adaptor interface...
+			 double[] gradient= LRUtil.calculateGradient(weights, target, phi_n);//later we will call this on an adaptor interface...
+			 
 			 DoubleWritable[] update = new DoubleWritable[gradient.length];//don't convert this back to string!
 			 for(int i =0;i< gradient.length;i++){
 				if(Double.isNaN(gradient[i])){
