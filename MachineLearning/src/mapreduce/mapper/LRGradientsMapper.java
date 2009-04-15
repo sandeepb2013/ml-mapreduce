@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.StringTokenizer;
+import java.util.TreeMap;
 
 
 import org.apache.hadoop.filecache.DistributedCache;
@@ -17,6 +18,7 @@ import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
@@ -38,52 +40,16 @@ import ml.algorithms.utils.LRUtil;
 public class LRGradientsMapper {
 
 	public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, IntWritable, DoubleArrayWritable> { 
-	   private Path[] model;
-	   private static String HDFS_LR_MODEL="/FinalLRModel/model.txt";
-	   private Path cachedModelPath;
+	   
+	  
 	   private JobConf conf;
-	   private static ArrayList<Double> w = new ArrayList<Double>();//universal model
+	   private static double[] weights=null;//universal model
+	   private boolean controlFlag1=true;
+	   
 	   public void configure(JobConf conf) {
-		    try{
-				Path [] cacheFiles = DistributedCache.getLocalCacheFiles(conf);
-				BufferedReader wordReader=null;
-				if (null != cacheFiles && cacheFiles.length > 0) {
-					System.out.println("Fetching paths...");
-			        for (Path cachePath : cacheFiles) {
-			        	System.out.println("PATHS: "+cachePath);
-			          if (cachePath.getName().equals(HDFS_LR_MODEL)) {
-			        	wordReader = FileUtils.getResouceAsReader(cachePath, conf);
-			            break;
-			          }
-			        }
-				}
-			 int count=0;
-			 System.out.println("Object WR="+wordReader);
-			 if(wordReader!=null){
-				 String line = wordReader.readLine();
-				 System.out.println("We red in the line: "+line);
-				 
-				 while(line!=null){
-					 String[] split = line.split(" ");
-					 w.add(Double.parseDouble(split[1].trim()));//Read in the model;
-					 count++;
-					 line = wordReader.readLine();
-				 }
-			 }else{//Reader is null....
-				 System.out.println("wordReader"+wordReader);
-				 System.out.println("Could not read in the model using zero matrix!!");
-				 
-			 }
-			}catch(IOException e){
-				System.out.println("Could not read in the model using zero matrix!!");
-				e.printStackTrace();
-			}
-			 if(w.size()<=0){//the model was not read in this is initialisation 
-				 System.out.println("Model was empty. This could be initialization");
-			}
-			
 		    
-		  }
+				this.conf=conf;
+	   }
 
 		@Override
 		public void map(LongWritable key, Text value, OutputCollector<IntWritable, DoubleArrayWritable> output, Reporter reporter) throws IOException {
@@ -97,15 +63,25 @@ public class LRGradientsMapper {
 				 phi_n[i] = Double.parseDouble(featureTargetArray[i]);
 				 System.out.print("VAL"+i+"::"+phi_n[i]+"   ");
 			 }
-			 System.out.println("*************Data inited. Running the lr on one data point*********");
-			 System.out.println("In Gradient mapper# "+key);
-			 double[] weights = new double[phi_n.length];
-			 int count=0;
-			 if(w.size()==phi_n.length){
-				 for (Double d : w) 
-					 weights[count++] =d;
-			 }else{
-				 Arrays.fill(weights, new Double(0));
+			 String controlFlag = conf.get("controlFlag1",null );//get the path
+			//Read in the weights file and subtract the updates from that...
+			if(controlFlag.equals("false") && controlFlag1){
+				weights = new double[phi_n.length];
+				String weightsFile = conf.get("weightsFile",null );//get the path
+				IntWritable currkey =  new IntWritable(); 
+			 	SequenceFile.Reader sr = FileUtils.getSequenceReader(weightsFile, conf);
+			 	DoubleWritable currValue = new DoubleWritable();
+			 	while(sr.next(currkey)){
+					sr.getCurrentValue(currValue);
+					weights[currkey.get()] = currValue.get();
+			 		System.out.println("Grad key:: "+currkey.get()+". Grad Val:: "+currValue.get());
+			 	}
+			 	
+			 	controlFlag1 = false;//reset the flag so that the common weights are not read in again and again
+			 }else if(controlFlag.equals("true") && controlFlag1){//this is the first iteration all weights must be zero
+				 weights = new double[phi_n.length];
+				 Arrays.fill(weights, 0);
+				 controlFlag1 = false;//we have inited the weights once dont want t
 			 }
 			 
 			 double[] gradient= LRUtil.calculateGradient(weights, target, phi_n);//later we will call this on an adaptor interface...
