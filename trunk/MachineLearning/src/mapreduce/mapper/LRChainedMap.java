@@ -56,7 +56,7 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
 					gradienttemp.put(currkey.get(),Double.parseDouble(value.toString()));//get the model...
 					System.out.println("Grad key:: "+currkey.get()+". Grad Val:: "+Double.parseDouble(value.toString()));
 				}
-				FileUtils.deleteFileAtURI(gradientFilePath, conf);//we dont need the gradient file it will be produced again
+				FileUtils.deleteFileAtURI(gradientFilePath, conf);//we dont need the gradient file, it will be produced again in the gradient reducer
 				//fs.delete(new Path(gradientFilePath), true);//make sure you delete the gradient
 				hessian= new double[gradienttemp.size()][gradienttemp.size()];
 				size=gradienttemp.size();
@@ -73,22 +73,45 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
 		}
 		   
 	}
-	
+	/*
+	 * The only out put of the chain mapper is the parameters. They are stored in a file. The chain mapper also has the responsibility
+	 * of deleting the output directory where the gradient is stored. We may want to move the clean up to a seperate module to encapsulate it
+	 * better in later designs...
+	 * */
 	public void map(Text key, DoubleWritable value,
 			OutputCollector<IntWritable, DoubleWritable> output, Reporter reporter)
 			throws IOException {
 			count++;
-			TreeMap<Integer,Double> weightsTemp =new TreeMap<Integer,Double>();
+			double[] weightsTemp=null;
 			String[] indices= key.toString().split(" ");
+			//gather the hessian
 			hessian[Integer.parseInt(indices[0].trim())][Integer.parseInt(indices[1].trim())] = value.get();
-			System.out.println("InChainedMap Class count var = "+count+" Indices:: "+ indices[0]+", "+indices[1]);
-			System.out.println("hessian val:"+hessian[Integer.parseInt(indices[0].trim())][Integer.parseInt(indices[1].trim())]);
+			
+			//System.out.println("InChainedMap Class count var = "+count+" Indices:: "+ indices[0]+", "+indices[1]);
+			//System.out.println("hessian val:"+hessian[Integer.parseInt(indices[0].trim())][Integer.parseInt(indices[1].trim())]);
+			//if the hessian has been gathered start the update to the parameters.
 			if(count==size*size){
 				System.out.println("Recieved all the values for hessian!!!!!");
 				System.out.println("Hessian size(N*N): "+hessian[gradient.length-1].length);
 				System.out.println("CONF IS:"+conf.get("whoami"));
 				LinearAlgebraUtils lra = new LinearAlgebraUtils();
 				double[][] inverse;
+				String controlFlag = conf.get("controlFlag1",null );//get the path
+				//Read in the weights file and subtract the updates from that. Delete the old weights file and rewrite it.
+				if(controlFlag.equals("false")){
+					weightsTemp = new double[hessian[Integer.parseInt(indices[0].trim())].length];//if its anything but the first iteration
+					String weightsFile = conf.get("weightsFile",null );//get the path
+					IntWritable currkey =  new IntWritable(); 
+				 	SequenceFile.Reader sr = FileUtils.getSequenceReader(weightsFile, conf);
+				 	DoubleWritable currValue = new DoubleWritable();
+				 	while(sr.next(currkey)){
+						sr.getCurrentValue(currValue);
+						weightsTemp[currkey.get()]= currValue.get();//get the model...
+						System.out.println("Grad key:: "+currkey.get()+". Grad Val:: "+currValue.get());
+					}
+					FileUtils.deleteFileAtURI(weightsFile, conf);
+				}
+				
 				try {
 					inverse = lra.Inverse(hessian);
 				    double[] update = new double[gradient.length];
@@ -98,37 +121,20 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
 						for(int j=0;j<inverse[gradient.length-1].length;j++){
 							tempSum+= inverse[i][j]* gradient[j];//M*1 matrix results. Where M is # of features
 						}update[i]=tempSum;
-						String controlFlag = conf.get("controlFlag1",null );//get the path
-						if(controlFlag.equals("true")){
+						controlFlag = conf.get("controlFlag1",null );//get the path
+						if(controlFlag.equals("false")){
 							//first iteration just write the weights to O/p as such
 							output.collect(new IntWritable(i), new DoubleWritable(update[i]));
+						}else if((controlFlag.equals("true"))){
+							 output.collect(new IntWritable(i), new DoubleWritable(weightsTemp[i]-update[i]));
 							
 						}
 					}
-					String controlFlag = conf.get("controlFlag1",null );//get the path
-					//Read in the weights file and subtract the updates from that delete the old weights file and rewrite the O/P again
-					if(controlFlag.equals("false")){
-						String gradientFilePath = conf.get("weightsFile",null );//get the path
-						IntWritable currkey =  new IntWritable(); 
-					 	SequenceFile.Reader sr = FileUtils.getSequenceReader(gradientFilePath, conf);
-					 	while(sr.next(currkey)){
-							sr.getCurrentValue(value);
-							weightsTemp.put(currkey.get(),Double.parseDouble(value.toString()));//get the model...
-							System.out.println("Grad key:: "+currkey.get()+". Grad Val:: "+Double.parseDouble(value.toString()));
-						}
-					 	double[] weights = new double[size];
-						for(int i =0 ;i<size;i++){
-							weights[i] = weightsTemp.get(i)-update[i];
-						}
-					}
-				} catch (Exception e) {
-					
+				 }catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
-
-		
-		
+			
 	} 
-	  
 }
+	  
