@@ -65,6 +65,7 @@ public class LRGradientsMapper {
 			 }
 			 String controlFlag = conf.get("controlFlag1",null );//get the path
 			//Read in the weights file and subtract the updates from that...
+			System.out.println("In Gradient mapper. The control flag is"+conf.get("controlFlag1",null ));
 			if(controlFlag.equals("false") && controlFlag1){
 				weights = new double[phi_n.length];
 				String weightsFile = conf.get("weightsFile",null );//get the path

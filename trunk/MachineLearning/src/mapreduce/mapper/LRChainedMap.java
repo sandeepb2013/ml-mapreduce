@@ -22,6 +22,7 @@ import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.lib.MultipleOutputs;
 
 import ml.algorithms.utils.*;
 import mapreduce.utils.*;
@@ -35,16 +36,20 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
     private static int size=0;//stores the size of the gradient vector or equally the model coefficients size.
     private static int count=0;
     private static JobConf conf;
-    
+    private MultipleOutputs mos;
+
 	 public void configure(JobConf conf) {
 		   //now we need to read in the sequence file that contains the gradient information
 		 try {
 			 	
 			 	this.conf = conf;
+			 	mos = new MultipleOutputs(conf);
+
 			 	TreeMap<Integer,Double> gradienttemp =new TreeMap<Integer,Double>();
 			 	System.out.println("CONF IS:"+conf.get("whoami"));//Shows chainedMapConf in logs... But I am 
 			 	String gradientFilePath = conf.get("gradientFile",null );//get the path
-			 	
+			 	System.out.println("The Gradient file path for Chain mapper is: "+gradientFilePath);
+			 	System.out.println("The weights file path for Chain mapper is: "+conf.get("weightsFile",null ));//get the path);
 			 	FileUtils.getSequenceReader(gradientFilePath, conf);
 			 	System.out.println("gradientFilePath: "+gradientFilePath);
 			 	SequenceFile.Reader sr = FileUtils.getSequenceReader(gradientFilePath, conf);//new SequenceFile.Reader(fs,new Path(gradientFilePath),new JobConf(false) );
@@ -98,7 +103,7 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
 				double[][] inverse;
 				String controlFlag = conf.get("controlFlag1",null );//get the path
 				//Read in the weights file and subtract the updates from that. Delete the old weights file and rewrite it.
-				if(controlFlag.equals("false")){
+				if(controlFlag.equals("false")){//gather weights if its not true.
 					weightsTemp = new double[hessian[Integer.parseInt(indices[0].trim())].length];//if its anything but the first iteration
 					String weightsFile = conf.get("weightsFile",null );//get the path
 					IntWritable currkey =  new IntWritable(); 
@@ -107,7 +112,7 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
 				 	while(sr.next(currkey)){
 						sr.getCurrentValue(currValue);
 						weightsTemp[currkey.get()]= currValue.get();//get the model...
-						System.out.println("Grad key:: "+currkey.get()+". Grad Val:: "+currValue.get());
+						System.out.println("Weight key:: "+currkey.get()+". Weight Val:: "+currValue.get());
 					}
 					FileUtils.deleteFileAtURI(weightsFile, conf);
 				}
@@ -122,12 +127,15 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
 							tempSum+= inverse[i][j]* gradient[j];//M*1 matrix results. Where M is # of features
 						}update[i]=tempSum;
 						controlFlag = conf.get("controlFlag1",null );//get the path
-						if(controlFlag.equals("false")){
+						if(controlFlag.equals("true")){
 							//first iteration just write the weights to O/p as such
 							output.collect(new IntWritable(i), new DoubleWritable(update[i]));
-						}else if((controlFlag.equals("true"))){
+						}else if((controlFlag.equals("false"))){
 							 output.collect(new IntWritable(i), new DoubleWritable(weightsTemp[i]-update[i]));
 							
+						}else if((controlFlag.equals("last"))){
+							//Write The weights file as an additional
+							mos.getCollector("seq", reporter).collect(new IntWritable(i), new DoubleWritable(weightsTemp[i]-update[i]));
 						}
 					}
 				 }catch (Exception e) {
