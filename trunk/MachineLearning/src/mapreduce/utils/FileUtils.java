@@ -2,9 +2,12 @@ package mapreduce.utils;
 
 
 import java.io.IOException;
+
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 
 public class FileUtils {
@@ -15,7 +18,9 @@ public class FileUtils {
 		FileSystem fs=null;
 		try {
 			fs = FileSystem.get(conf);
-			SequenceFile.Reader sr = new SequenceFile.Reader(fs,new Path(URI),new JobConf(false) );
+			FileStatus[] status = fs.listStatus(new Path(URI));
+			System.out.println("IN file Utils.Opening file"+status[1].getPath());
+			SequenceFile.Reader sr = new SequenceFile.Reader(fs,status[1].getPath(),new JobConf(false) );
 			return sr;
 			
 		} catch (IOException e) {
