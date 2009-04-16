@@ -20,7 +20,7 @@ public class LRHessianReducer {
 		public void reduce(Text key, Iterator<DoubleWritable> values,
 				OutputCollector<Text, DoubleWritable> output, Reporter reporter)
 				throws IOException  {
-				System.out.println("In reducer# "+key);
+				System.out.println("In hessian reducer# "+key);
 				DoubleWritable hessianElement=new DoubleWritable(0);
 				while(values.hasNext()){//add each of the values of firstStageElements to firststagesum
 					hessianElement.set(hessianElement.get()+values.next().get());//gathet 

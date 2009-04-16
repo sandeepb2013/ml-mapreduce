@@ -23,7 +23,7 @@ public class LRGradientReducer {
 	public void reduce(IntWritable key, Iterator<DoubleArrayWritable> values,
 			OutputCollector<IntWritable, Text> output, Reporter reporter)
 			throws IOException  {
-			System.out.println("In reducer# "+key);
+			System.out.println("In Gradient reducer# "+key);
 			DoubleWritable[] firstStageSum =null;//sum of all firstStageElements arrays
 			Writable[] firstStageElements=null;
 			if(values.hasNext()){//get each array into firstStageElements
