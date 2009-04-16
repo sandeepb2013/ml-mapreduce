@@ -47,6 +47,7 @@ public class LRHessianMapper {
 			 double target = Double.parseDouble(featureTargetArray[featureTargetArray.length-1]);//target at the end...
 			 
 			 String controlFlag = conf.get("controlFlag1",null );//get the path
+			 System.out.println("In Hessian mapper. The control flag is"+conf.get("controlFlag1",null ));
 			if(controlFlag.equals("false") && controlFlag1){
 				weights = new double[phi_n.length];
 				String weightsFile = conf.get("weightsFile",null );//get the path
@@ -65,13 +66,13 @@ public class LRHessianMapper {
 				Arrays.fill(weights,0);
 				controlFlag1 = false;//we have inited the weights once dont want to do the same thing again...
 			}
-		
+			System.out.println("In hessian mapper# "+key);
 			for(int i=0 ;i < phi_n.length ;i++){
 				phi_n[i] = Double.parseDouble(featureTargetArray[i]);
 				System.out.print("VAL"+i+"::"+phi_n[i]+"   ");
 			}
 			 System.out.println("*************inited running the lr on one daya point*********");
-			 System.out.println("In hessian mapper# "+key);
+			
 			 //Great we avoided the need for a huge temporary matrix completely!. We just need to collect the 
 			 //H(i,j) directly in the for loop below. This saves RAM. Even for a 50*50 double hessian assuming 
 			 // it takes 2500*8 = 20000 =20KB of temp ram memory/mapper. The O/P space on the HDFS will be the same.
@@ -87,10 +88,8 @@ public class LRHessianMapper {
 					 
 				 }
 			 }
-			 System.out.println();
 			 System.out.println("Exiting mapper# "+key);
-			 
-			 
+			 System.out.println();			 
 		}
 		
 	}
