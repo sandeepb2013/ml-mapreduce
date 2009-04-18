@@ -51,9 +51,10 @@ public class LRGradientReducer {
 			
 				//add it to the sum
 				for(int i = 0 ;i <firstStageElements.length;i++){//add the values to the sum 
+					System.out.print(firstStageSum[i]+", "+firstStageElements[i]+" :: ");
 					firstStageSum[i]= new DoubleWritable(firstStageSum[i].get() +(double)((DoubleWritable)firstStageElements[i]).get());
 					
-				}
+				}System.out.println("~~~");
 			}
 			List ls = Arrays.asList(firstStageSum);//op the list as text
 			Text s = new Text(ls.toString());
@@ -61,7 +62,7 @@ public class LRGradientReducer {
 				
 			for(int i = 0 ;i < firstStageSum.length;i++){
 				try{	
-					System.out.println("In Gradient reducer writing value: "+String.valueOf(firstStageSum[i].get()));
+					//System.out.println("In Gradient reducer writing value: "+String.valueOf(firstStageSum[i].get()));
 					output.collect(new IntWritable(i),firstStageSum[i]);//Write o/p to the file.
 				
 				}catch(Exception e){
