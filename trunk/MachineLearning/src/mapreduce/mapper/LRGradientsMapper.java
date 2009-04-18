@@ -108,9 +108,9 @@ public class LRGradientsMapper {
 					gradient[i] = Double.MIN_VALUE;
 				 } 
 				update[i] = new DoubleWritable(gradient[i]);
-			    System.out.print("VAL "+i+"::"+update[i]+"   ");
+			   // System.out.print("VAL "+i+"::"+update[i]+"   ");
 			 }System.out.println();
-			 System.out.println("*************In gradient mapper Writing the above O/p to reducers *********");
+			// System.out.println("*************In gradient mapper Writing the above O/p to reducers *********");
 			 int i = new Random().nextInt(6);//generate a number between 0-19 inclusive
 			 
 			 //now we need to write the O/p keys
