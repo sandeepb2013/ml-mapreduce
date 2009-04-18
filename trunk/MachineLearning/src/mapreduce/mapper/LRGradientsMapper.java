@@ -62,31 +62,46 @@ public class LRGradientsMapper {
 			 for(int i=0 ;i < phi_n.length ;i++){
 				 phi_n[i] = Double.parseDouble(featureTargetArray[i]);
 				 System.out.print("VAL"+i+"::"+phi_n[i]+"   ");
-			 }
+			 }System.out.println();
 			 String controlFlag = conf.get("controlFlag1",null );//get the path
 			//Read in the weights file and subtract the updates from that...
-			System.out.println("In Gradient mapper. The control flag is"+conf.get("controlFlag1",null ));
+			System.out.println("In Gradient mapper. The control flag from driver is:: "+conf.get("controlFlag1",null ));
+			System.out.println("In Gradient mapper. The control flag for Mapper is:: "+controlFlag1);
+			
 			if(controlFlag.equals("false") && controlFlag1){
+				System.out.println("In gradient mapper Getting the weights now");
 				weights = new double[phi_n.length];
+				
 				String weightsFile = conf.get("weightsFile",null );//get the path
-				IntWritable currkey =  new IntWritable(); 
-			 	SequenceFile.Reader sr = FileUtils.getSequenceReader(weightsFile, conf);
-			 	DoubleWritable currValue = new DoubleWritable();
+				//IntWritable currkey =  new IntWritable(); 
+			 	SequenceFile.Reader sr = FileUtils.getSequenceReaderFromFile(weightsFile, conf);
+			 	DoubleWritable[] weightsArray = FileUtils.readIndexedSequenceFiles(conf,DoubleWritable.class,sr);
+			 	int i=0;
+			 	for (DoubleWritable doubleWritable : weightsArray) {
+			 		weights[i]= doubleWritable.get();
+			 		i++;
+				}
+			 	sr.close();
+			 	/*DoubleWritable currValue = new DoubleWritable();
 			 	while(sr.next(currkey)){
 					sr.getCurrentValue(currValue);
 					weights[currkey.get()] = currValue.get();
-			 		System.out.println("Grad key:: "+currkey.get()+". Grad Val:: "+currValue.get());
-			 	}
+			 		System.out.println("Weights key:: "+currkey.get()+". Weights Val:: "+currValue.get());
+			 	}*/
 			 	
 			 	controlFlag1 = false;//reset the flag so that the common weights are not read in again and again
 			 }else if(controlFlag.equals("true") && controlFlag1){//this is the first iteration all weights must be zero
+				 System.out.println("In gradient mapper. looks like this is the first iteration");
 				 weights = new double[phi_n.length];
 				 Arrays.fill(weights, 0);
 				 controlFlag1 = false;//we have inited the weights once dont want t
 			 }
-			 
+			
+			 System.out.println("In Gradient mapper. Weights array length =  "+weights.length);
+			 System.out.println("In Gradient mapper. Length ofI/P vector =  "+phi_n.length+" Phi Read in is "+phi_n_t);
+			 //////////////////////////////GRADIENT CALCULATED HERE///////////////////////////////
 			 double[] gradient= LRUtil.calculateGradient(weights, target, phi_n);//later we will call this on an adaptor interface...
-			 
+			 /////////////////////////////////////////////////////////////
 			 DoubleWritable[] update = new DoubleWritable[gradient.length];//don't convert this back to string!
 			 for(int i =0;i< gradient.length;i++){
 				if(Double.isNaN(gradient[i])){
@@ -95,15 +110,19 @@ public class LRGradientsMapper {
 				update[i] = new DoubleWritable(gradient[i]);
 			    System.out.print("VAL "+i+"::"+update[i]+"   ");
 			 }System.out.println();
-			 System.out.println("*************Writing the above O/p to reducers *********");
+			 System.out.println("*************In gradient mapper Writing the above O/p to reducers *********");
 			 int i = new Random().nextInt(6);//generate a number between 0-19 inclusive
 			 
 			 //now we need to write the O/p keys
 			 DoubleArrayWritable ars = new DoubleArrayWritable();
 			 ars.set(update);
+			 try{
 			 output.collect(new IntWritable(1),ars);//collect the values into one of the 1 bin... Only one reducer to be spawned...
-			 System.out.println("Exiting mapper# "+key);
-			 
+			 System.out.println("Exiting Gradient mapper# "+key);
+			 }catch(Exception e){
+				 System.out.println("In gradient mapper Exception while writing to the collector."+" value :"+ars);
+				 e.printStackTrace();
+			 }
 			 
 		}
 		

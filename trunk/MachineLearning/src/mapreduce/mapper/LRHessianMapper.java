@@ -34,6 +34,7 @@ public class LRHessianMapper {
 		   public void configure(JobConf conf) {
 			   this.conf=conf;
 			   controlFlag1=true;
+			   System.out.println("Cofiguring the hessian mapper..");
 		  }
 
 		@Override
@@ -48,20 +49,33 @@ public class LRHessianMapper {
 			 
 			 String controlFlag = conf.get("controlFlag1",null );//get the path
 			 System.out.println("In Hessian mapper. The control flag is"+conf.get("controlFlag1",null ));
+			 System.out.println("In Hessian mapper. The control flag form mapper is"+controlFlag1);
+
 			if(controlFlag.equals("false") && controlFlag1){
+				System.out.println("In gradient mapper Getting the weights now");
 				weights = new double[phi_n.length];
 				String weightsFile = conf.get("weightsFile",null );//get the path
-				IntWritable currkey =  new IntWritable(); 
-			 	SequenceFile.Reader sr = FileUtils.getSequenceReader(weightsFile, conf);
-			 	DoubleWritable currValue = new DoubleWritable();
-			 	while(sr.next(currkey)){
+				//IntWritable currkey =  new IntWritable(); 
+			 	SequenceFile.Reader sr = FileUtils.getSequenceReaderFromFile(weightsFile, conf);
+			 	//DoubleWritable currValue = new DoubleWritable();
+			 	
+			 	DoubleWritable[] weightsArray = FileUtils.readIndexedSequenceFiles(conf,DoubleWritable.class,sr);
+			 	int i=0;
+			 	for (DoubleWritable doubleWritable : weightsArray) {
+			 		weights[i]= doubleWritable.get();
+			 		i++;
+				}
+			 	sr.close();
+			 	/*while(sr.next(currkey)){
 					sr.getCurrentValue(currValue);
 					weights[currkey.get()] = currValue.get();
-			 		System.out.println("Grad key:: "+currkey.get()+". Grad Val:: "+currValue.get());
-			 	}
+			 		System.out.println("In hessian mapper Grad key:: "+currkey.get()+". Grad Val:: "+currValue.get());
+			 	}*/
 			 	
 			 	controlFlag1 = false;//reset the flag so that the common weights are not read in again and again
 			}else if(controlFlag.equals("true") && controlFlag1){//this is the first iteration all weights must be zero
+				 System.out.println("In hessian mapper. looks like this is the first iteration");
+
 				weights = new double[phi_n.length];
 				Arrays.fill(weights,0);
 				controlFlag1 = false;//we have inited the weights once dont want to do the same thing again...
@@ -88,7 +102,7 @@ public class LRHessianMapper {
 					 
 				 }
 			 }
-			 System.out.println("Exiting mapper# "+key);
+			 System.out.println("Exiting Hessian mapper# "+key);
 			 System.out.println();			 
 		}
 		
