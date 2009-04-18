@@ -30,7 +30,12 @@ import org.apache.hadoop.mapred.jobcontrol.JobControl;
 import org.apache.hadoop.mapred.lib.ChainReducer;
 import org.apache.hadoop.mapred.lib.MultipleOutputs;
 
-
+/*
+ * Observations:
+ * In the chain reducer. the output of the chained reducer is controlled
+ * by the job conf of the main map-reduce class. Rather than the mapper in the chain reducer.
+ * In our case the JobConf for the hessian is incharge of the O/P directories and not the chainedMap conf. 
+ * */
 public class Driver2 {
 
 	/**
@@ -41,11 +46,11 @@ public class Driver2 {
 	public static void main(String[] args) {
 		
 		JobControl jobControl =new JobControl("LR job");
-		int iterations =2;
+		int iterations =6;
 		LRJob jobRunner= new LRJob(jobControl, Driver2.class,  iterations); 
 		//configure the jobs t be run
-		Thread thr = new Thread(jobRunner);//
-		thr.start();//Start the thread
+		//Thread thr = new Thread(jobRunner);//
+		//thr.start();//Start the thread
 		
 		try {
 			
@@ -53,15 +58,15 @@ public class Driver2 {
 			//wait before the added job is completed
 			for(int i=0; i<iterations;i++){
 				jobRunner.configureJob(args,i);
-				jobRunner.addJobs();//add the job now and wait until it has finished
+				jobRunner.runJobs();//add the job now and wait until it has finished
 				System.out.println("Starting "+(i+1)+"th iteration");
-				while(!jobControl.allFinished()){
-					Thread.sleep(500);//Sleep now until the last job is finished.
-				}
-			    jobRunner.configureJob(args, i);//configure the jobs t be run
+				
+				//jobControl.resume();
+				//System.out.println(jobControl.getRunningJobs());
+			    //jobRunner.configureJob(args, i);//configure the jobs t be run
 				
 			}
-			jobRunner.stopJobControl();//stop the job
+			//jobRunner.stopJobControl();//stop the job
 			
 					
 		} catch (Exception e) {
@@ -77,7 +82,7 @@ public class Driver2 {
 
 class LRJob implements Runnable{
 
-	private JobControl lrJob;//Wrapped job Control object
+	private JobClient lrJob = new JobClient();//Wrapped job Control object
 	private JobConf confHessian;
 	private JobConf confGradient;
 	private JobConf reduceConf;
@@ -91,16 +96,17 @@ class LRJob implements Runnable{
 	private int iterations=0;
 	
 	LRJob(JobControl jc, Class mainClass, int iterations ){
-		 lrJob=jc;
+		 this.iterations = iterations;
+		 //lrJob=jc;
 		 this.mainClass = mainClass.getName();
 		 //System.out.println(this.mainClass.getName()+" : "+mainClass.getName());
 		 controlFlag1= true;
 	}
 	public void run() {
-		lrJob.run();
+		
 	}
 	public void stopJobControl(){
-		lrJob.stop();
+		//lrJob.stop();
 	}
 	/**
 	 * Configure the job ,like below, before adding it to job control
@@ -125,20 +131,22 @@ class LRJob implements Runnable{
 		confGradient.setMapOutputKeyClass(IntWritable.class);
 		confGradient.setMapOutputValueClass(DoubleArrayWritable.class);
 		confGradient.setOutputKeyClass(IntWritable.class);
-		confGradient.setOutputValueClass(Text.class);
-		confGradient.setOutputFormat(SequenceFileOutputFormat.class);
-		chainedMapConf.setOutputFormat(SequenceFileOutputFormat.class);
+		confGradient.setOutputValueClass(DoubleWritable.class);
 		
+		confGradient.setOutputFormat(SequenceFileOutputFormat.class);
+		//chainedMapConf.setOutputFormat(SequenceFileOutputFormat.class);
+		confHessian.setOutputFormat(SequenceFileOutputFormat.class);
 		if(args[1].charAt(args[1].length()-1) =='/'){
 			args[1] = args[1].substring(0,args[1].length()-1);
 			}
 	
 		//start setting the O/P paths 
 		FileInputFormat.setInputPaths(confHessian, new Path(args[0]));
-		SequenceFileOutputFormat.setOutputPath(confHessian ,new Path(args[1]+"/weights/"));//Final O/P should be the weights file
+		SequenceFileOutputFormat.setOutputPath(confHessian ,new Path(args[1]+"/hessian/"));//Final O/P should be the weights file
 		FileInputFormat.setInputPaths(confGradient, new Path(args[0]));
 		SequenceFileOutputFormat.setOutputPath(confGradient ,new Path(args[1]+"/gradient/"));//will help in reading cleanly when we need it... 
-		SequenceFileOutputFormat.setOutputPath(chainedMapConf ,new Path(args[1]+"/weights/"));//tempvariable looks like the chain mapper needs an O/P
+		//Looks like the OutputFormat for the chained mapper need not be set
+		//SequenceFileOutputFormat.setOutputPath(chainedMapConf ,new Path(args[1]+"/weights/"));//tempvariable looks like the chain mapper needs an O/P
 		//chainedMapConf.addResource(SequenceFileOutputFormat.getOutputPath(confGradient));
 		
 		confHessian.setMapperClass(mapreduce.mapper.LRHessianMapper.Map.class);//need to be replaced by multiple inputs
@@ -146,13 +154,14 @@ class LRJob implements Runnable{
 		confHessian.setCombinerClass(mapreduce.reducer.LRHessianReducer.Reduce.class);
 		confGradient.setMapperClass(mapreduce.mapper.LRGradientsMapper.Map.class);//need to be replaced by multiple inputs
 		confGradient.setReducerClass(mapreduce.reducer.LRGradientReducer.Reduce.class);//
-		confGradient.setCombinerClass(mapreduce.reducer.LRGradientReducer.Reduce.class);//
 		try {
 			fs = FileSystem.get(confGradient);
 			Path outputPaths= FileOutputFormat.getOutputPath(confGradient);//get the O/p paths from the gradient
+			
 			gradientFilesPath = outputPaths.toString();//fs.listStatus(outputPaths);//op path of the gradient
-			outputPaths = FileOutputFormat.getOutputPath(confHessian);
-			weightsFilePath = outputPaths.toString();//fs.listStatus(outputPaths);
+			//Universal model!
+			Path path = new Path("/user/hadoop/model.dat");
+			weightsFilePath = path.makeQualified(fs).toString();//fs.listStatus(outputPaths);
 		} catch (IOException e) {
 			
 			e.printStackTrace();
@@ -166,6 +175,7 @@ class LRJob implements Runnable{
 		//confHessian.set("weightsFile", weightsFile[1].getPath().toString());
 		
 		chainedMapConf.set("gradientFile", gradientFilesPath);//The gradient is needed by the chain reducer.
+		
 		chainedMapConf.set("weightsFile", weightsFilePath);//The gradient is needed by the chain reducer.
 		confGradient.set("weightsFile",weightsFilePath);
 		confHessian.set("weightsFile", weightsFilePath);
@@ -176,12 +186,11 @@ class LRJob implements Runnable{
 		 * */
 		
 		System.out.println("i:: "+i+" Total iterations"+iterations);
-		if(i ==iterations-1){
-			chainedMapConf.set("controlFlag1", "last");
+		/*if(i ==iterations-1){
+			chainedMapConf.set("controlFlag2", "last");
 			System.out.println("Last iteration setting the redirect");
-		}else{
-			chainedMapConf.set("controlFlag1", String.valueOf(controlFlag1));
-		}
+		}*/
+		chainedMapConf.set("controlFlag1", String.valueOf(controlFlag1));
 		confGradient.set("controlFlag1", String.valueOf(controlFlag1));
 		confHessian.set("controlFlag1", String.valueOf(controlFlag1));
 		if(controlFlag1){
@@ -197,18 +206,34 @@ class LRJob implements Runnable{
 				Text.class, DoubleWritable.class, true, reduceConf);//sets the O/P K,V pair for the chain reducer.
 		ChainReducer.addMapper(confHessian, mapreduce.mapper.LRChainedMap.class, Text.class, 
 				DoubleWritable.class, IntWritable.class, DoubleWritable.class, false, chainedMapConf);//set the O/P K,V pair for the chain mapper as well.
-		 MultipleOutputs.addMultiNamedOutput(chainedMapConf, "seq",
+		 /*MultipleOutputs.addMultiNamedOutput(confHessian, "seq",
 				   FileOutputFormat.class,
-				   IntWritable.class, DoubleWritable.class);
+				   IntWritable.class, DoubleWritable.class);*/
+		try {
+			fs.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		
 	}
-	public void addJobs(){
+	public void runJobs(){
 		try {
 			Job dependency = new Job(confGradient);
-			new Job(confHessian).addDependingJob(dependency);
-			lrJob.addJob(new Job(confHessian));
-			lrJob.addJob(new Job(confGradient));
+			Job dependent = new Job(confHessian);
+			dependent.addDependingJob(dependency);
+			//lrJob.submitJob(confGradient);
+			JobClient.runJob(confGradient);
+			System.out.println("Running the hessian job");
+			JobClient.runJob(confHessian);
+			//Clean up...
+			FileSystem fs = FileSystem.get(confGradient);
+			Path outputPaths= FileOutputFormat.getOutputPath(confGradient);
+			fs.delete(outputPaths, true);
+			outputPaths= FileOutputFormat.getOutputPath(confHessian);
+			fs.delete(outputPaths, true);
+			fs.close();
 			//lrJob.addJob(new Job(chainedMapConf));
 			//lrJob.addJob(new Job(confHessian));
 		} catch (IOException e) {
