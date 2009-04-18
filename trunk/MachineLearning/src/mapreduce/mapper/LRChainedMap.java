@@ -144,9 +144,9 @@ public class LRChainedMap extends MapReduceBase implements Mapper<Text, DoubleWr
 						
 						if(controlFlag.equals("true")){
 							//first iteration just write the weights to O/p as such
-							System.out.println("In chained reducer(First Iteration). Collecting O/P from primary collector. Value: "+(update[i]));
-							swrt.append(new IntWritable(i), new DoubleWritable(update[i]));
-							output.collect(new IntWritable(i), new DoubleWritable(update[i]));
+							System.out.println("In chained reducer(First Iteration). Collecting O/P from primary collector. Value: "+(weightsTemp[i]-update[i]));
+							swrt.append(new IntWritable(i), new DoubleWritable(weightsTemp[i]-update[i]));
+							output.collect(new IntWritable(i), new DoubleWritable(weightsTemp[i]-update[i]));
 						}else if((controlFlag.equals("false"))){
 							System.out.println("In chained reducer(> 1st iteration). Collecting O/P from primary collector. Value: "+(weightsTemp[i]-update[i]));
 							
