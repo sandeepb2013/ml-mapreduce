@@ -1,0 +1,9 @@
+What is this project all about?
+This is a class project which aims to demonstrate a simple Proof of Concept about massive parallelization of Machine learning algorithms on a Distributed Fie System. For the purposes of proof of concept we use the Hadoop DFS and its JAVA API. The first fully functional algorithm to be implemented was the Logistic Regression using Iterative Newton raphson.
+
+What we want to do?
+Being an offline system Hadoop has the "job" philosophy. Meant for data ranging in TB and it is largely an offline process. So you may ask how this can help in Machine learnin, where it may rather help to have an online process...
+We feel this is not true. Many machine learning algorithms take a lot of time to learn. Example we may have to run an unsupervised machine algorithm on data time and again on data accumalated, say from the WWW. Another interesting algorithm is  cross validation for feature selection which can potentially take a lot of time. The EM algorithm for clustering and cross validation are correctly chosen as project objectives. ERLang is a better suited language for this task but due to the time factor we had to settle for JAVA based implementation.... :(
+Another objective will be to develop a methodology for specifying the topology of the map-reduce network used for specific types of algols. Rarely does a simple map-reduce suffice for the entire algorithm. Logistic Regression, the first algo to be implemented required 2 M-R cycles chained for a single iteration. A visual tool can save the head ache for the user to specify the Job Configuration by hand. Map reduce is better visualized as a spatial concept and we firmly believe that this is the single most important design decision for the project. This study will be extremely helpful for a more elegant ERLang based designs which is the language "meant" for such jobs.
+
+NOTE: Please use the mr-machine learning in the trunks section for viewing the latest code.
